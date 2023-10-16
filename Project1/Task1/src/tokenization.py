@@ -15,13 +15,14 @@ def load_task1_data(F_reduced_dataset=False):
     corpus = pd.read_json(f'{dir_path}corpus.jsonl', lines=True).set_index(['_id'])
     queries = pd.read_json(f'{dir_path}queries.jsonl', lines=True)[['_id', 'text']].set_index(['_id'])
     train_set = pd.read_table(f'{dir_path}task1_train.tsv')[["query-id","corpus-id"]].set_index(['query-id'])
+    test_set = pd.read_table(f'{dir_path}task1_test.tsv')["query-id"]
 
     if F_reduced_dataset:
         corpus = corpus.head(15000)
         queries = queries.head(15000)
         train_set = train_set.head(5000)
 
-    return corpus, queries, train_set
+    return corpus, queries, train_set, test_set
 
 def remove_punctuation(text):
     """
@@ -57,7 +58,6 @@ def save_tokenized_corpus_queries(token_dir, corpus, queries):
         corpus_tokens_part.to_pickle(filename)
     
     queries["tokens"].to_pickle(f"{token_dir}queries_tokens.pkl")
-    print("Files saved")
 
 def load_tokenized_corpus_queries(token_dir, corpus, queries):
     files_paths=listdir(token_dir)
@@ -68,29 +68,3 @@ def load_tokenized_corpus_queries(token_dir, corpus, queries):
     queries["tokens"] = pd.read_pickle(f"{token_dir}queries_tokens.pkl")
     print("Files loaded")
     return corpus, queries
-
-def generate_vocab_from_corpus(corpus):
-    # Own method
-    tokens = corpus['tokens']
-    vocab_custom = pd.DataFrame(sorted(list(set([ x for y in tokens for x in y]))), columns=["word"])
-    
-    # TFID method
-    texts = corpus['text']
-    tf = TfidfVectorizer(analyzer='word', ngram_range=(1,1), min_df = 1, stop_words = 'english')
-    tf.fit_transform(texts)
-    vocab_TFID = pd.DataFrame(sorted(list(tf.vocabulary_.keys())), columns=["word"])
-
-    # Vocab with word and method 
-    vocab = vocab_custom.merge(vocab_TFID, on=['word'], how='outer', indicator=True)
-    vocab.columns = ["word", "method"]
-    vocab.replace({
-        "both":"Both",
-        "left_only":"Custom",
-        "right_only":"TFID"
-    }, inplace=True)
-
-
-    return vocab
-
-def save_vocab(vocab:pd.DataFrame, vocab_path):
-    vocab.to_csv(vocab_path, index=False)
